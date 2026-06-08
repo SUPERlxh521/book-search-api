@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>📚 书籍查询 API</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a12;color:#d0d0e0;font-family:'Segoe UI',sans-serif;min-height:100vh;padding:20px;display:flex;justify-content:center}
+.container{max-width:900px;width:100%}
+h1{font-size:28px;background:linear-gradient(90deg,#ffd700,#ff6b6b,#5090ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-align:center;margin-bottom:20px}
+.card{background:#12121e;border:1px solid #2a2a44;border-radius:10px;padding:16px 20px;margin-bottom:14px}
+.card h2{font-size:16px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+input,select{padding:6px 10px;background:#0a0a16;border:1px solid #2a2a44;border-radius:5px;color:#d0d0e0;font-size:13px;flex:1;min-width:150px}
+button{padding:6px 16px;background:linear-gradient(135deg,#2a2a4e,#3a3a5e);border:none;color:#d0d0e0;border-radius:5px;cursor:pointer;font-size:13px;transition:.12s}
+button:hover{background:linear-gradient(135deg,#3a3a5e,#4a4a6e)}
+.result{background:#0a0a16;border:1px solid #1a1a2e;border-radius:6px;padding:10px;margin-top:8px;font-size:13px;line-height:1.6;white-space:pre-wrap;overflow-x:auto}
+pre{font-family:inherit;white-space:pre-wrap;margin:0}
+.badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:3px;margin:2px}
+.badge.ai{background:#0e1a3a;color:#5090ff}
+.badge.code{background:#0e2e1e;color:#40c060}
+.badge.lit{background:#3a0e0e;color:#ff6b6b}
+.badge.rate{background:#3a2e0e;color:#ffd700}
+.books{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.book{background:#0a0a18;border:1px solid #1a1a2e;border-radius:6px;padding:10px 14px;width:100%;cursor:pointer;transition:.12s}
+.book:hover{border-color:#4040a0;background:#0e0e22}
+.book .bt{font-weight:600;font-size:14px}
+.book .ba{color:#6868a0;font-size:12px}
+.book .bs{font-size:11px;color:#606090;margin-top:4px}
+.endpoint{background:#0a0a16;border:1px solid #1a1a2e;border-radius:5px;padding:8px 12px;margin:4px 0;font-size:12px;display:flex;justify-content:space-between;align-items:center}
+.endpoint code{color:#40d0c0}
+.endpoint .method{font-weight:700;padding:2px 6px;border-radius:3px;font-size:10px}
+.method.get{background:#0e2e1e;color:#40c060}
+@media(max-width:600px){.row{flex-direction:column}.row input{width:100%}}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📚 书籍查询 API</h1>
+
+  <div class="card">
+    <h2>🔍 搜索书籍</h2>
+    <div class="row">
+      <input id="searchQ" placeholder="关键词（书名/作者）" value="">
+      <select id="searchCat"><option value="">全部分类</option></select>
+      <button onclick="searchBooks()">搜索</button>
+    </div>
+    <div class="result" id="searchResult"><pre>输入关键词后点击搜索</pre></div>
+  </div>
+
+  <div class="card">
+    <h2>📖 热门推荐</h2>
+    <div class="row">
+      <select id="recCat"><option value="">全部</option></select>
+      <button onclick="getRecommend()">推荐</button>
+    </div>
+    <div class="books" id="recBooks"></div>
+  </div>
+
+  <div class="card">
+    <h2>⚡ API 端点</h2>
+    <div class="endpoint"><span><code>GET /api/v1/books/search?q=关键词&category=分类&page=1&size=10</code></span><span class="method get">GET</span></div>
+    <div class="endpoint"><span><code>GET /api/v1/books/isbn/{isbn}</code></span><span class="method get">GET</span></div>
+    <div class="endpoint"><span><code>GET /api/v1/books/categories</code></span><span class="method get">GET</span></div>
+    <div class="endpoint"><span><code>GET /api/v1/books/recommend?category=分类&count=5</code></span><span class="method get">GET</span></div>
+    <div class="endpoint"><span><code>GET /health</code></span><span class="method get">GET</span></div>
+  </div>
+</div>
+
+<script>
+const API = 'https://superlxh521.github.io/book-search-api/api';
+
+const BOOKS = [
+  {id:1,title:"深入理解计算机系统",author:"Randal E. Bryant",category:"编程技术",rating:9.8},
+  {id:2,title:"代码大全",author:"Steve McConnell",category:"编程技术",rating:9.5},
+  {id:3,title:"算法导论",author:"Thomas H. Cormen",category:"编程技术",rating:9.7},
+  {id:4,title:"Python编程：从入门到实践",author:"Eric Matthes",category:"编程技术",rating:9.2},
+  {id:5,title:"设计模式",author:"Erich Gamma",category:"编程技术",rating:9.4},
+  {id:6,title:"人工智能：一种现代方法",author:"Stuart Russell",category:"人工智能",rating:9.7},
+  {id:7,title:"机器学习",author:"周志华",category:"人工智能",rating:9.6},
+  {id:8,title:"深度学习",author:"Ian Goodfellow",category:"人工智能",rating:9.5},
+  {id:9,title:"统计学习方法",author:"李航",category:"人工智能",rating:9.4},
+  {id:10,title:"三体",author:"刘慈欣",category:"文学",rating:9.8},
+  {id:11,title:"红楼梦",author:"曹雪芹",category:"文学",rating:9.9},
+  {id:12,title:"活着",author:"余华",category:"文学",rating:9.7},
+  {id:13,title:"百年孤独",author:"马尔克斯",category:"文学",rating:9.6},
+  {id:14,title:"人类简史",author:"Yuval Noah Harari",category:"人文社科",rating:9.5},
+  {id:15,title:"枪炮、病菌与钢铁",author:"Jared Diamond",category:"人文社科",rating:9.4},
+  {id:16,title:"时间简史",author:"Stephen Hawking",category:"自然科学",rating:9.5},
+  {id:17,title:"自私的基因",author:"Richard Dawkins",category:"自然科学",rating:9.3},
+  {id:18,title:"国富论",author:"Adam Smith",category:"经济管理",rating:9.4},
+  {id:19,title:"经济学原理",author:"N. Gregory Mankiw",category:"经济管理",rating:9.5},
+  {id:20,title:"道德经",author:"老子",category:"哲学",rating:9.8},
+  {id:21,title:"论语",author:"孔子",category:"哲学",rating:9.7},
+  {id:22,title:"明朝那些事儿",author:"当年明月",category:"历史",rating:9.4},
+  {id:23,title:"万历十五年",author:"黄仁宇",category:"历史",rating:9.3},
+  {id:24,title:"被讨厌的勇气",author:"岸见一郎",category:"心理自助",rating:9.2},
+  {id:25,title:"心流",author:"Mihaly Csikszentmihalyi",category:"心理自助",rating:9.0},
+  {id:26,title:"1984",author:"George Orwell",category:"文学",rating:9.5},
+  {id:27,title:"围城",author:"钱钟书",category:"文学",rating:9.3},
+  {id:28,title:"数据结构与算法",author:"Mark Allen Weiss",category:"编程技术",rating:9.1}
+];
+
+const cats = [...new Set(BOOKS.map(b=>b.category))];
+cats.forEach(c => {
+  document.getElementById('searchCat').innerHTML += `<option value="${c}">${c}</option>`;
+  document.getElementById('recCat').innerHTML += `<option value="${c}">${c}</option>`;
+});
+
+function searchBooks() {
+  const q = document.getElementById('searchQ').value;
+  const cat = document.getElementById('searchCat').value;
+  let r = BOOKS;
+  if (q) { const ql = q.toLowerCase(); r = r.filter(b => b.title.toLowerCase().includes(ql) || b.author.toLowerCase().includes(ql)); }
+  if (cat) r = r.filter(b => b.category === cat);
+  const res = document.getElementById('searchResult');
+  res.innerHTML = `<pre>${JSON.stringify({code:0,data:{total:r.length,items:r}},null,2)}</pre>`;
+}
+
+function getRecommend() {
+  const cat = document.getElementById('recCat').value;
+  let r = cat ? BOOKS.filter(b=>b.category===cat) : BOOKS;
+  r.sort((a,b)=>b.rating-a.rating);
+  r = r.slice(0,8);
+  const el = document.getElementById('recBooks');
+  el.innerHTML = r.map(b => `
+    <div class="book" onclick="alert('${b.title}\\n作者: ${b.author}\\n分类: ${b.category}\\n评分: ${b.rating}')">
+      <div class="bt">${b.title}</div>
+      <div class="ba">${b.author} · <span class="badge rate">★ ${b.rating}</span></div>
+      <div class="bs"><span class="badge ${b.category==='编程技术'||b.category==='人工智能'?'code':'lit'}">${b.category}</span></div>
+    </div>`).join('');
+}
+
+getRecommend();
+</script>
+</body>
+</html>
